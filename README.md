@@ -1,140 +1,152 @@
 # DeepFake Engine v2
 
-DeepFake Engine v2 is a minimal end-to-end deepfake detection pipeline that allows you to train your own model and run inference on images (and extend to videos). It is designed to work on macOS (Apple Silicon / MPS), CUDA-enabled GPUs, or CPU, and is suitable for small datasets and rapid experimentation
+**DeepFake Engine v2** is a minimal end-to-end **deepfake detection pipeline** designed for research prototyping and hackathon use.
+It supports **training a custom model** and running **inference on images and videos**, with explicit support for **multiple faces per frame**.
+
+> ⚠️ This repository does **not include any training dataset**.
+> Users are expected to supply their own real and fake images or videos.
 
 ---
 
-## Architecture Overview
+## 🔍 Key Capabilities
 
-The system follows a simple but effective forensic pipeline:
-
-1. **Video Input**
-   - Real and fake videos are placed manually into separate folders.
-
-2. **Frame Extraction**
-   - Videos are sampled at a fixed FPS to extract frames.
-
-3. **Face Preprocessing**
-   - Faces are detected and cropped from frames.
-   - Cropped faces are resized and normalized.
-
-4. **Deepfake Detection Model**
-   - Dual-branch neural network:
-     - RGB branch: EfficientNet-B0 backbone for spatial artifacts.
-     - Frequency branch: FFT-based features to capture GAN artifacts.
-   - Features are fused and passed to a classifier.
-   - Output is a probability of fake vs real.
-
-5. **Inference**
-   - Single-image inference returns fake/real with confidence.
-   - Video inference can be extended by aggregating frame-level predictions.
+- Dual-CNN (double convolutional) deepfake detection model
+- Spatial + frequency-domain artifact analysis
+- Multi-face detection and verification using **FaceNet (MTCNN)**
+- Image inference and extensible video inference pipeline
+- Designed for small datasets and rapid experimentation
 
 ---
 
-## Requirements
+## 🧠 System Overview
 
-- Python 3.9 or higher
-- One of the following:
-  - NVIDIA GPU with CUDA
-  - Apple Silicon (MPS)
-  - CPU
+The pipeline follows a standard **forensic deepfake detection workflow**:
+
+### 1️⃣ Input
+
+- User-provided images or videos
+- Supports both single-person and multi-person scenes
 
 ---
 
-## Setup
+### 2️⃣ Frame Sampling (Videos)
 
-```bash
-cd /Users/akashaaprasad/Documents/DeepFake\ Engine_v2
-python -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-```
+- Videos are sampled at a fixed frame rate
+- Frames are extracted uniformly across time to avoid bias
 
-On Windows:
+---
 
-```bat
-cd C:\path\to\DeepFake Engine_v2
-python -m venv .venv
-.venv\Scripts\activate
-pip install --upgrade pip
-pip install -r requirements.txt
-```
+### 3️⃣ Face Detection & Preprocessing (Multi-Face)
 
-For CUDA, install a CUDA-enabled PyTorch build that matches your driver/toolkit:
+- **FaceNet (MTCNN)** is used to detect **all faces** present in a frame
+- For each detected face:
+  - Face is cropped
+  - Resized to a fixed resolution
+  - Normalized before CNN processing
 
-```bash
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-```
+This enables:
 
-## Data Download
+- Independent verification of **multiple individuals**
+- Per-face confidence scores
+- Robust handling of crowded or real-world scenes
 
-This repo does not automatically download datasets. Put your videos here:
+---
 
-```
-data/
-  raw/
-    real/   # real videos (.mp4/.avi)
-    fake/   # deepfake videos (.mp4/.avi)
-```
+### 4️⃣ Deepfake Detection Model (Double CNN Architecture)
 
-You can run the helper instructions:
+The core model uses **two parallel convolutional neural networks**:
 
-```bash
-python download_data.py
-```
-## Extract Frames
+#### 🔹 Spatial (RGB) CNN
 
-```bash
-python extract_frames.py
-```
+- CNN backbone inspired by Xception / EfficientNet
+- Learns visible manipulation artifacts such as:
+  - Texture inconsistencies
+  - Blending and boundary errors
+  - Color and lighting mismatches
 
+#### 🔹 Frequency CNN
 
+- Operates on frequency-domain representations (FFT)
+- Captures:
+  - GAN upsampling artifacts
+  - High-frequency noise patterns
+  - Compression-related inconsistencies
 
-## Preprocess (Extract Faces)
+#### 🔹 Feature Fusion & Classification
 
-```bash
-python preprocess.py
-```
+- Features from both CNN branches are concatenated
+- A classifier outputs a **probability score (Real vs Fake)**
 
-This creates:
+This **double-CNN design** improves generalization by combining:
 
-```
-data/
-  processed/
-    real/<video_name>/*.jpg
-    fake/<video_name>/*.jpg
-```
+- Human-visible spatial cues
+- Machine-generated frequency artifacts
 
-## Train
+---
+
+### 5️⃣ Inference
+
+#### Image Inference
+
+- Detects **all faces** in an image
+- Produces:
+  - Real/Fake prediction per face
+  - Confidence score for each prediction
+
+#### Video Inference
+
+- Performs frame-level, face-level inference
+- Predictions can be aggregated to obtain:
+  - Video-level classification
+  - (Optional) temporal consistency analysis
+
+---
+
+## 🏋️ Training
 
 ```bash
 python train.py
 ```
 
-The best checkpoint is saved to:
+- Trains the dual-CNN model on user-supplied data
+- The best model checkpoint is saved automatically and used during inference
 
-```
-models/best_model.pth
-```
+---
 
-The training script uses CUDA if available; otherwise it falls back to MPS or CPU.
-
-## Inference (Single Image)
+## 🔎 Inference Example
 
 ```bash
-python inference.py /full/path/to/image.jpg
+python inference.py /path/to/image.jpg
 ```
 
-Example:
+- Supports images containing multiple faces
+- Outputs predictions independently for each detected face
 
-```bash
-python inference.py /Users/akashaaprasad/Downloads/test4.jpeg
-```
+---
 
-If you see an error like `Could not read image`, the file path is wrong or the image cannot be opened.
+## 📌 Notes
 
-## Notes
+- No dataset is bundled with this repository
+- Retraining updates inference behavior automatically
+- Multi-face support is detection-based (not identity recognition)
 
-- If you retrain the model, inference will use the new `models/best_model.pth`.
-- For faster iteration, use a small set of videos.
+---
+
+## 📖 Acknowledgements
+
+- Face detection powered by **FaceNet (MTCNN)**
+- CNN-based forensic modeling inspired by deepfake detection research
+- System design and implementation by **Ranit Laha**
+
+---
+
+## 🚀 Possible Extensions
+
+- Timestamp-level manipulation localization in videos
+- Temporal smoothing of frame predictions
+- Identity-aware tracking using face embeddings
+- Attention-based temporal modeling
+
+---
+
+**DeepFake Engine v2** focuses on combining a **double CNN architecture** with **FaceNet-based multi-face analysis**, making it well-suited for hackathons, demos, and forensic research prototypes.
